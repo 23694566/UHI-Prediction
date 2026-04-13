@@ -1,0 +1,73 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# -----------------------------
+# LOAD DATA
+# -----------------------------
+data = pd.read_csv("UHI_dataset_final.csv")
+data = data.drop(columns=['system:index', '.geo'])
+data = data.dropna()
+
+X = data[['NDVI', 'NDBI']].values
+y = data['LST'].values
+
+# -----------------------------
+# SPLIT DATA
+# -----------------------------
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# -----------------------------
+# MODELS
+# -----------------------------
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
+
+rf = RandomForestRegressor().fit(X_train, y_train)
+lr = LinearRegression().fit(X_train, y_train)
+xgb = XGBRegressor().fit(X_train, y_train)
+
+rf_pred = rf.predict(X_test)
+lr_pred = lr.predict(X_test)
+xgb_pred = xgb.predict(X_test)
+
+# -----------------------------
+# GRU
+# -----------------------------
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import GRU, Dense, Input
+
+X_train_gru = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+X_test_gru = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
+
+gru_model = Sequential([
+    Input(shape=(1, 2)),
+    GRU(32),
+    Dense(1)
+])
+
+gru_model.compile(optimizer='adam', loss='mse')
+gru_model.fit(X_train_gru, y_train, epochs=50, batch_size=32, verbose=0)
+
+gru_pred = gru_model.predict(X_test_gru).flatten()
+
+# -----------------------------
+# GRAPHS
+# -----------------------------
+plt.figure()
+plt.scatter(y_test, rf_pred)
+plt.title("RF Prediction")
+plt.savefig("fig1_rf.png")
+
+plt.figure()
+plt.scatter(y_test, xgb_pred)
+plt.title("XGB Prediction")
+plt.savefig("fig2_xgb.png")
+
+plt.figure()
+plt.scatter(y_test, gru_pred)
+plt.title("GRU Prediction")
+plt.savefig("fig3_gru.png")
+
+print("Graphs generated successfully!")

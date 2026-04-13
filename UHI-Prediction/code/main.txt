@@ -1,0 +1,99 @@
+import pandas as pd
+import numpy as np
+
+# -----------------------------
+# LOAD DATA
+# -----------------------------
+data = pd.read_csv("UHI_dataset_final.csv")
+data = data.drop(columns=['system:index', '.geo'])
+data = data.dropna()
+
+X = data[['NDVI', 'NDBI']].values
+y = data['LST'].values
+
+print("Data Loaded Successfully")
+print(data.head())
+
+# -----------------------------
+# TRAIN-TEST SPLIT
+# -----------------------------
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# -----------------------------
+# RANDOM FOREST
+# -----------------------------
+from sklearn.ensemble import RandomForestRegressor
+rf = RandomForestRegressor()
+rf.fit(X_train, y_train)
+rf_pred = rf.predict(X_test)
+
+# -----------------------------
+# LINEAR REGRESSION
+# -----------------------------
+from sklearn.linear_model import LinearRegression
+lr = LinearRegression()
+lr.fit(X_train, y_train)
+lr_pred = lr.predict(X_test)
+
+# -----------------------------
+# XGBOOST
+# -----------------------------
+from xgboost import XGBRegressor
+xgb = XGBRegressor()
+xgb.fit(X_train, y_train)
+xgb_pred = xgb.predict(X_test)
+
+# -----------------------------
+# GRU MODEL (FIXED)
+# -----------------------------
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import GRU, Dense, Input
+
+# reshape for GRU
+X_train_gru = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+X_test_gru = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
+
+gru_model = Sequential([
+    Input(shape=(1, 2)),
+    GRU(32),
+    Dense(1)
+])
+
+gru_model.compile(optimizer='adam', loss='mse')
+gru_model.fit(X_train_gru, y_train, epochs=50, batch_size=32, verbose=0)
+
+gru_pred = gru_model.predict(X_test_gru).flatten()
+
+# -----------------------------
+# METRICS
+# -----------------------------
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+def evaluate(y_true, y_pred):
+    rmse = mean_squared_error(y_true, y_pred) ** 0.5
+    mae = mean_absolute_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+    return rmse, mae, r2
+
+rf_rmse, rf_mae, rf_r2 = evaluate(y_test, rf_pred)
+lr_rmse, lr_mae, lr_r2 = evaluate(y_test, lr_pred)
+xgb_rmse, xgb_mae, xgb_r2 = evaluate(y_test, xgb_pred)
+gru_rmse, gru_mae, gru_r2 = evaluate(y_test, gru_pred)
+
+# -----------------------------
+# OUTPUT
+# -----------------------------
+print("\n===== MODEL RESULTS =====")
+
+print("\nRandom Forest:")
+print(f"RMSE: {rf_rmse:.3f}, MAE: {rf_mae:.3f}, R2: {rf_r2:.3f}")
+
+print("\nLinear Regression:")
+print(f"RMSE: {lr_rmse:.3f}, MAE: {lr_mae:.3f}, R2: {lr_r2:.3f}")
+
+print("\nXGBoost:")
+print(f"RMSE: {xgb_rmse:.3f}, MAE: {xgb_mae:.3f}, R2: {xgb_r2:.3f}")
+
+print("\nGRU:")
+print(f"RMSE: {gru_rmse:.3f}, MAE: {gru_mae:.3f}, R2: {gru_r2:.3f}")    
